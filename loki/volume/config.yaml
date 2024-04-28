@@ -7,7 +7,6 @@ auth_enabled: false
 
 server:
   http_listen_port: 3100
-  grpc_listen_port: 9096
 
 common:
   ring:
@@ -16,6 +15,14 @@ common:
       store: inmemory
   replication_factor: 1
   path_prefix: /loki
+  storage:
+    s3:
+      endpoint: minio:9000
+      insecure: true
+      bucketnames: loki-data
+      access_key_id: loki
+      secret_access_key: supersecret
+      s3forcepathstyle: true
 
 schema_config:
   configs:
@@ -27,12 +34,16 @@ schema_config:
       prefix: index_
       period: 24h
 
-storage_config:
-  boltdb_shipper:
-    active_index_directory: /loki/index
-    cache_location: /loki/index_cache
-    resync_interval: 5s
-    shared_store: s3
-  aws:
-    s3: http://minioadmin:minioadmin@minio.:9000/loki
-    s3forcepathstyle: true
+ruler:
+  storage:
+    s3:
+      bucketnames: loki-ruler
+# storage_config:
+  # boltdb_shipper:
+  #   active_index_directory: /loki/index
+  #   cache_location: /loki/index_cache
+  #   resync_interval: 5s
+  #   shared_store: s3
+  # aws:
+  #   s3: http://minioadmin:minioadmin@minio.:9000/loki
+  #   s3forcepathstyle: true

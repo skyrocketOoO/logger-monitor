@@ -1,0 +1,62 @@
+networks:
+  observer:
+
+services:
+  minio:
+    image: minio/minio
+    command: minio server --console-address ":9001" /data
+    environment:
+      - MINIO_ROOT_USER=loki
+      - MINIO_ROOT_PASSWORD=supersecret
+      - MINIO_PROMETHEUS_AUTH_TYPE=public
+      - MINIO_UPDATE=off
+      - MINIO_CONFIG_ENV_FILE=/etc/config/config.env
+    ports:
+      - 9000:9000
+      - 9001:9001
+    volumes:
+      - ./minio/.data/minio:/data
+      - ./minio/config:/etc/config
+
+  createbuckets:
+      image: minio/mc
+      depends_on:
+        - minio
+      entrypoint: >
+        /bin/sh -c "
+        /usr/bin/mc config host add myminio http://minio:9000 loki supersecret;
+        /usr/bin/mc rm -r --force myminio/loki-data;
+        /usr/bin/mc rm -r --force myminio/loki-ruler;
+        /usr/bin/mc mb myminio/loki-data;
+        /usr/bin/mc mb myminio/loki-ruler;
+        /usr/bin/mc anonymous set public myminio/loki-data;
+        /usr/bin/mc anonymous set public myminio/loki-ruler;
+        echo "success"
+        exit 0;
+        "
+
+  loki:
+    image: grafana/loki:latest
+    volumes:
+      - ./loki/volume:/home/loki/volume
+    ports:
+      - "3100:3100"
+    command: -config.file=/home/loki/volume/config.yaml -target=all
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+
+  fluentbit:
+    image: fluent/fluent-bit:latest
+    ports:
+      - "24224:24224"
+    volumes:
+      - ./fluent-bit/config:/etc/fluent-bit/user/config
+    command: ["-c", "/etc/fluent-bit/user/config/fluent-bit.conf"]
+
+  mock-logger:
+    image: test-logger:latest
+    logging:
+      driver: "fluentd"
